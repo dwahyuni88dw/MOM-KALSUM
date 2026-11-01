@@ -1,9 +1,10 @@
-/* Isi dengan konfigurasi aplikasi web dari Firebase Console:
-   Project settings > General > Your apps > Web app > SDK setup and configuration (Config).
-   Nilai ini memang publik; amankan lewat aturan Firestore dan pembatasan referrer API key (lihat README). */
+// Konfigurasi Firebase (web app "MoM Kalteng I", project mom-kalsum).
+// Nilai ini memang publik; akses data diatur oleh firestore.rules.
 window.FIREBASE_CONFIG = {
-  apiKey: "ISI_API_KEY",
-  authDomain: "ISI_PROJECT_ID.firebaseapp.com",
-  projectId: "ISI_PROJECT_ID",
-  appId: "ISI_APP_ID"
+  apiKey: "AIzaSyCWykvqYvmbhYTzfLmJ-hTqrni4O4AwYd4",
+  authDomain: "mom-kalsum.firebaseapp.com",
+  projectId: "mom-kalsum",
+  storageBucket: "mom-kalsum.firebasestorage.app",
+  messagingSenderId: "719673157052",
+  appId: "1:719673157052:web:d44e21eda9d69eb3dd37b9"
 };
