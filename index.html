@@ -954,7 +954,9 @@ if (typeof module !== 'undefined') module.exports = { parseMoM };
   const unitKey = u => String(u || '').toLowerCase().replace(/[^a-z0-9]/g, '');
   function canonUnit(u) {
     u = String(u || '').replace(/\s+/g, ' ').trim();
-    if (unitKey(u).startsWith('skmmillkcpbiogas')) return 'Skm Mill & Kcp Biogas Plant';
+    const k = unitKey(u);
+    if (k.startsWith('skmmillkcpbiogas')) return 'Skm Mill & Kcp Biogas Plant';
+    if (k === 'general' || k.startsWith('csrplasma')) return 'CSR Kalteng';   // digabung ke CSR Kalteng
     return u;
   }
   const myUnit = () => (S.me ? canonUnit(S.me.unit) : '');
@@ -985,7 +987,11 @@ if (typeof module !== 'undefined') module.exports = { parseMoM };
     closePw(); gate(); if (m) toast(m);
   }
   function snapUsers(snap) {
-    S.users = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.role === 'admin' ? 0 : 1) - (b.role === 'admin' ? 0 : 1) || (a.ord || 0) - (b.ord || 0) || String(a.name).localeCompare(String(b.name)));
+    { const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const real = new Set(all.filter(u => u.role !== 'admin' && u.unit === canonUnit(u.unit)).map(u => u.unit));
+      /* akun unit yang sudah digabung (mis. General -> CSR Kalteng) disembunyikan bila akun induknya ada */
+      S.users = all.filter(u => u.role === 'admin' || u.unit === canonUnit(u.unit) || !real.has(canonUnit(u.unit))); }
+    S.users = S.users.sort((a, b) => (a.role === 'admin' ? 0 : 1) - (b.role === 'admin' ? 0 : 1) || (a.ord || 0) - (b.ord || 0) || String(a.name).localeCompare(String(b.name)));
     S.usersLoaded = true;
     if (!S.me) {
       const ss = sessGet();
