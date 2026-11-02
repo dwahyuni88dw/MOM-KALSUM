@@ -143,6 +143,13 @@ button { cursor: pointer; }
 .att .days { color: var(--late); font-size: 13px; font-weight: 500; padding-top: 1px; }
 .att .t { overflow-wrap: anywhere; }
 .att .m { display: block; font-size: 12px; color: var(--ink-2); }
+.notes-sec { margin: 12px 0; }
+.nl { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.nl li { border-left: 3px solid var(--accent); background: var(--accent-soft); border-radius: 0 6px 6px 0; padding: 8px 12px; font-size: 14px; display: grid; gap: 3px; min-width: 0; }
+.nl .nt { white-space: pre-line; overflow-wrap: anywhere; }
+.nl .ni { font-size: 12.5px; color: var(--ink-2); overflow-wrap: anywhere; }
+.nl .ni b { color: var(--ink); font-weight: 600; }
+.nl .nm { font-size: 12px; color: var(--ink-2); display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; }
 .pr { display: grid; grid-template-columns: 112px minmax(0, 1fr) 34px; gap: 10px; align-items: center; width: 100%; background: none; border: 0; padding: 4px 0; text-align: left; border-radius: 4px; }
 .pr:hover { background: var(--surface-2); }
 .pr .pn { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -549,6 +556,7 @@ if (typeof module !== 'undefined') module.exports = { parseMoM };
       <div class="kpi late"><div class="v">${all.late}</div><div class="l">Lewat tenggat</div></div>
       <div class="kpi soon"><div class="v">${all.soon}</div><div class="l">Tenggat ≤ 14 hari</div></div></div>
       <div class="overall">${segBar(all, true)}<div class="legend"><span><i style="background:var(--accent)"></i>Selesai</span><span><i style="background:var(--late)"></i>Lewat tenggat</span><span><i style="background:var(--track)"></i>Belum selesai, masih dalam tenggat</span></div></div>
+      ${notesPanel()}
       ${insights()}
       <div class="sec"><h2>Progres per unit</h2><button class="btn small" data-act="copyall">Salin ringkasan semua unit</button></div>`;
     const units = unitList();
@@ -569,6 +577,15 @@ if (typeof module !== 'undefined') module.exports = { parseMoM };
       });
     });
     el.innerHTML = h;
+  }
+  function notesPanel() {
+    const AUTO = 'Dicentang di dokumen to-do list sebelum aplikasi ini dibuat.';   // catatan otomatis dari data awal, bukan tulisan pengguna
+    const withNote = S.items.filter(i => (i.note || '').trim() && i.note.trim() !== AUTO);
+    if (!withNote.length) return `<section class="ins wide notes-sec"><h3>Catatan dari unit</h3><div class="cap">${isAdmin() ? 'Catatan yang ditulis tiap unit di checklist akan tampil di sini.' : 'Catatan yang Anda tulis di checklist akan tampil di sini.'}</div><div class="none" style="color:var(--ink-2)">Belum ada catatan.</div></section>`;
+    withNote.sort((a, b) => String(b.noteAt || b.doneAt || '').localeCompare(String(a.noteAt || a.doneAt || '')) || (a.ord || 0) - (b.ord || 0));
+    const lim = S.showAllNotes ? withNote.length : 8, shown = withNote.slice(0, lim);
+    const li = i => `<li><div class="ni"><b>${esc(i.unit)}</b> · ${esc(i.pic)} · ${esc(i.text.length > 110 ? i.text.slice(0, 110) + '…' : i.text)}</div><div class="nt">${esc(i.note)}</div><div class="nm">${i.noteBy ? '<span>Ditulis oleh ' + esc(i.noteBy) + '</span>' : ''}${i.noteAt ? '<span>' + fmt(i.noteAt) + '</span>' : ''}<button class="lnk" data-act="notejump" data-id="${esc(i.id)}">Buka di checklist</button></div></li>`;
+    return `<section class="ins wide notes-sec"><h3>Catatan dari unit <span class="mono" style="font-weight:400;font-size:13px">${withNote.length}</span></h3><div class="cap">Catatan terbaru yang ditulis ${isAdmin() ? 'pengguna' : 'unit Anda'} di checklist.</div><ul class="nl">${shown.map(li).join('')}</ul>${withNote.length > 8 ? `<div style="margin-top:10px"><button class="btn small" data-act="notesmore">${S.showAllNotes ? 'Tampilkan lebih sedikit' : 'Tampilkan semua ' + withNote.length + ' catatan'}</button></div>` : ''}</section>`;
   }
   function insights() {
     const open = S.items.filter(i => !i.done);
@@ -840,7 +857,7 @@ if (typeof module !== 'undefined') module.exports = { parseMoM };
   async function saveNote(id, text) {
     const it = S.items.find(i => i.id === id);
     if (!S.db || !it || !canEdit(it) || (it.note || '') === text) return;
-    try { await queued(id, () => S.db.doc('items/' + id).update({ note: text })); }
+    try { await queued(id, () => S.db.doc('items/' + id).update(text ? { note: text, noteAt: S.today, noteBy: (S.me && S.me.name) || null } : { note: '', noteAt: null, noteBy: null })); }
     catch (e) { toast('Gagal menyimpan catatan: ' + msg(e), true); }
   }
 
@@ -890,6 +907,8 @@ if (typeof module !== 'undefined') module.exports = { parseMoM };
     else if (act === 'copyunit') { const u = unitList().find(x => x.name === a.dataset.u); if (u) copyText(u.name, unitText(u)); }
     else if (act === 'picfilter') { S.f = { q: '', unit: '', pic: a.dataset.p, st: 'open' }; $('#fq').value = ''; renderList(); go('checklist'); }
     else if (act === 'copyall') copyText('ringkasan semua unit', allText());
+    else if (act === 'notesmore') { S.showAllNotes = !S.showAllNotes; renderSummary(); }
+    else if (act === 'notejump') { const it = S.items.find(x => x.id === a.dataset.id); if (it) { S.f = { q: '', unit: it.unit, pic: '', st: 'all' }; $('#fq').value = ''; S.openNotes.add(it.id); renderList(); go('checklist'); setTimeout(() => { const el = document.querySelector('.item[data-id="' + it.id + '"]'); if (el) el.scrollIntoView({ block: 'center' }); }, 60); } }
     else if (act === 'openlist') { S.f = { q: '', unit: a.dataset.u, pic: '', st: 'all' }; $('#fq').value = ''; renderList(); go('checklist'); }
     else if (act === 'rem' || act === 'note') {
       const id = a.closest('.item').dataset.id, set = act === 'rem' ? S.openRem : S.openNotes;
